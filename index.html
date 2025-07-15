@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Byte Patcher with Console</title>
+	<style>
+		html, body {
+		height: 100%;
+		margin: 0;
+		font-family: sans-serif;
+		display: flex;
+		flex-direction: column;
+		}
+
+		#dropzone {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 3px dashed #aaa;
+		color: #666;
+		font-size: 24px;
+		text-align: center;
+		}
+
+		#controls {
+		display: none;
+		padding: 15px;
+		background: #f0f0f0;
+		border-top: 1px solid #ccc;
+		flex-direction: column;
+		}
+
+		.row {
+		display: flex;
+		gap: 20px;
+		align-items: center;
+		margin-bottom: 10px;
+		}
+
+		#modList, #console {
+		font-family: monospace;
+		background: #222;
+		color: #0f0;
+		padding: 10px;
+		height: 150px;
+		overflow-y: auto;
+		white-space: pre-wrap;
+		margin-top: 10px;
+		}
+
+		#modList {
+		background: #111;
+		color: #ddd;
+		}
+
+		label {
+		margin-right: 10px;
+		}
+  	</style>
+</head>
+<body>
+	<input type="file" id="fileInput" style="display:none" />
+	<div id="dropzone">Drag & Drop File Here</div>
+
+	<div id="controls">
+		<div class="row">
+			<label><input type="checkbox" id="check1" checked> No Grabbed Player</label>
+			<label><input type="checkbox" id="check2" checked> No Hand Taps</label>
+			<label><input type="checkbox" id="check3" checked> No Splash Effect</label>
+			<label><input type="checkbox" id="check4" checked> No Surface Hit</label>
+			<label><input type="checkbox" id="check5" checked> No Reactor Death (Enemies)</label>
+			<label><input type="checkbox" id="check6" checked> No Reactor Death (Acid)</label>
+			<button id="patchBtn">Patch and Download</button>
+		</div>
+
+		<div><strong>Modifications:</strong></div>
+		<div id="modList"></div>
+
+		<div><strong>Console Output:</strong></div>
+		<div id="console"></div>
+  	</div>
+
+<script>
+	let fileBytes = null;
+
+	const dropzone = document.getElementById('dropzone');
+	const controls = document.getElementById('controls');
+	const patchBtn = document.getElementById('patchBtn');
+	const modList = document.getElementById('modList');
+	const consoleOut = document.getElementById('console');
+
+	const patches = [{
+			label: "GrabbedByPlayer",
+			id: "check1"
+		},
+		{
+			label: "OnHandTapRPC",
+			id: "check2"
+		},
+		{
+			label: "RPC_PlaySplashEffect",
+			id: "check3"
+		},
+		{
+			label: "PlaySurfaceHit",
+			id: "check4"
+		},
+		{
+			label: "ApplyEnemyHitPlayerRPC",
+			id: "check5"
+		},
+		{
+			label: "RequestPlayerStateChange",
+			id: "check6"
+		}
+	];
+
+	dropzone.addEventListener('dragover', (e) => {
+		e.preventDefault();
+		dropzone.style.borderColor = '#000';
+	});
+
+	dropzone.addEventListener('drop', (e) => {
+		e.preventDefault();
+		dropzone.style.borderColor = '#aaa';
+
+		const file = e.dataTransfer.files[0];
+		if (!file) return;
+
+		const reader = new FileReader();
+		reader.onload = function(evt) {
+			fileBytes = new Uint8Array(evt.target.result);
+			dropzone.textContent = `Loaded: ${file.name} (${fileBytes.length} bytes)`;
+			controls.style.display = 'flex';
+			modList.textContent = '';
+			consoleOut.textContent = '';
+		};
+		reader.readAsArrayBuffer(file);
+	});
+
+	patchBtn.addEventListener('click', () => {
+		if (!fileBytes) return;
+
+		let totalPatches = 0;
+		modList.textContent = '';
+		consoleOut.textContent = 'Scanning memory for patch targets...\n';
+
+		patches.forEach(patch => {
+			const checkbox = document.getElementById(patch.id);
+			if (!checkbox.checked) return;
+
+			const needle = new TextEncoder().encode(patch.label);
+			const replacement = new TextEncoder().encode(patch.label.toUpperCase());
+
+			let count = 0;
+			let offset = 0;
+			while ((offset = indexOfBytes(fileBytes, needle, offset)) !== -1) {
+				for (let i = 0; i < replacement.length; i++) {
+					fileBytes[offset + i] = replacement[i];
+				}
+				modList.textContent += `✔ "${patch.label}" at byte offset ${offset}\n`;
+				count++;
+				offset += needle.length;
+			}
+
+			consoleOut.textContent += `${patch.label}: ${count} replacement(s)\n`;
+			totalPatches += count;
+		});
+
+		const blob = new Blob([fileBytes]);
+		const a = document.createElement('a');
+		a.href = URL.createObjectURL(blob);
+		a.download = 'global-metadata.bin';
+		a.click();
+
+		consoleOut.textContent += `\nPatch complete. Total modifications: ${totalPatches}`;
+	});
+
+	function indexOfBytes(haystack, needle, start = 0) {
+		outer: for (let i = start; i <= haystack.length - needle.length; i++) {
+			for (let j = 0; j < needle.length; j++) {
+				if (haystack[i + j] !== needle[j]) continue outer;
+			}
+			return i;
+		}
+		return -1;
+	}
+
+
+	const fileInput = document.getElementById('fileInput');
+	dropzone.addEventListener('click', () => {
+		fileInput.click();
+	});
+
+	fileInput.addEventListener('change', () => {
+		if (fileInput.files.length > 0) {
+			loadFile(fileInput.files[0]);
+		}
+	});
+
+	// Shared file loader for drag & input
+	function loadFile(file) {
+		const reader = new FileReader();
+		reader.onload = function(evt) {
+			fileBytes = new Uint8Array(evt.target.result);
+			dropzone.textContent = `Loaded: ${file.name} (${fileBytes.length} bytes)`;
+			controls.style.display = 'flex';
+			modList.textContent = '';
+			consoleOut.textContent = '';
+		};
+		reader.readAsArrayBuffer(file);
+	}
+
+	// Updated drag event to use shared loader
+	dropzone.addEventListener('drop', (e) => {
+		e.preventDefault();
+		dropzone.style.borderColor = '#aaa';
+		const file = e.dataTransfer.files[0];
+		if (file) loadFile(file);
+	});
+</script>
+
+</body>
+</html>
