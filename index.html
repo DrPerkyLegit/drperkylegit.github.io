@@ -159,7 +159,10 @@
 			let offset = 0;
 			while ((offset = indexOfBytes(fileBytes, needle, offset)) !== -1) {
 				if (patch.blacklisted != null) {
-					if (patch.blacklisted.includes(count)) continue;
+					if (patch.blacklisted.includes(count)) {
+						count++;
+						continue;
+					}
 				}
 				for (let i = 0; i < replacement.length; i++) {
 					fileBytes[offset + i] = replacement[i];
