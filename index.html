@@ -171,7 +171,7 @@
 		const blob = new Blob([fileBytes]);
 		const a = document.createElement('a');
 		a.href = URL.createObjectURL(blob);
-		a.download = 'global-metadata.bin';
+		a.download = 'global-metadata.dat';
 		a.click();
 
 		consoleOut.textContent += `\nPatch complete. Total modifications: ${totalPatches}`;
