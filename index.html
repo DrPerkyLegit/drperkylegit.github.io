@@ -65,10 +65,10 @@
 
 	<div id="controls">
 		<div class="row">
-			<label><input type="checkbox" id="check1" checked> No Grabbed Player</label>
-			<label><input type="checkbox" id="check2" checked> No Hand Taps</label>
-			<label><input type="checkbox" id="check3" checked> No Splash Effect</label>
-			<label><input type="checkbox" id="check4" checked> No Surface Hit</label>
+			<!-- <label><input type="checkbox" id="check1" checked> No Grabbed Player</label> Doesnt Seem To Work -->
+			<label><input type="checkbox" id="check2" checked> No Hand Taps (Networked)</label>
+			<label><input type="checkbox" id="check3" checked> No Splash Effect (Networked)</label>
+			<label><input type="checkbox" id="check4" checked> No Surface Hit (Untested)</label>
 			<label><input type="checkbox" id="check5" checked> No Reactor Death (Enemies)</label>
 			<label><input type="checkbox" id="check6" checked> No Reactor Death (Acid)</label>
 			<button id="patchBtn">Patch and Download</button>
@@ -90,16 +90,18 @@
 	const modList = document.getElementById('modList');
 	const consoleOut = document.getElementById('console');
 
-	const patches = [{
-			label: "GrabbedByPlayer",
-			id: "check1"
-		},
+	const patches = [
+		//{
+		//	label: "GrabbedByPlayer",
+		//	id: "check1"
+		//},
 		{
 			label: "OnHandTapRPC",
 			id: "check2"
 		},
 		{
 			label: "RPC_PlaySplashEffect",
+			blacklisted: [ 2 ],
 			id: "check3"
 		},
 		{
@@ -156,6 +158,9 @@
 			let count = 0;
 			let offset = 0;
 			while ((offset = indexOfBytes(fileBytes, needle, offset)) !== -1) {
+				if (patch.blacklisted != null) {
+					if (patch.blacklisted.includes(count)) continue;
+				}
 				for (let i = 0; i < replacement.length; i++) {
 					fileBytes[offset + i] = replacement[i];
 				}
